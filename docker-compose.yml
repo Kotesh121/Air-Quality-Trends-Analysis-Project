@@ -1,0 +1,74 @@
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: airq_mysql
+    restart: unless-stopped
+
+    environment:
+      MYSQL_ROOT_PASSWORD: airq_root_password
+      MYSQL_DATABASE: airq
+      MYSQL_USER: airq_user
+      MYSQL_PASSWORD: airq_password
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pairq_root_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    container_name: airq_backend
+    restart: unless-stopped
+
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: airq
+      MYSQL_USER: airq_user
+      MYSQL_PASSWORD: airq_password
+
+      ALLOWED_ORIGINS: http://localhost
+      DEFAULT_PLAN: free
+      JWT_SECRET: change-this-production-secret
+      JWT_EXPIRES_MIN: 60
+
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: gemma3:4b
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+    ports:
+      - "8000:8000"
+
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+        VITE_PLAN: free
+
+    container_name: airq_frontend
+    restart: unless-stopped
+
+    depends_on:
+      - backend
+
+    ports:
+      - "80:80"
+
+
+volumes:
+  mysql_data:
