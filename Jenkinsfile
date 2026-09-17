@@ -43,31 +43,43 @@ pipeline {
             }
         }
 
-        stage('Verify Deployment') {
-            steps {
-                sh '''
-                    cd /opt/air-quality/Air-Quality-Trends-Analysis-Project
+      stage('Verify Deployment') {
+          steps {
+              sh '''
+                  cd /opt/air-quality/Air-Quality-Trends-Analysis-Project
 
-                    docker compose ps
+            echo "Checking containers..."
+            docker compose ps
 
-                    echo "Checking backend..."
-                    curl -f http://localhost:8000/healthz
+            echo "Waiting for backend health..."
 
+            for i in {1..12}; do
+                if curl -fsS http://localhost:8000/healthz; then
                     echo ""
-                    echo "Checking frontend..."
-                    curl -f http://localhost
-                '''
-            }
-        }
-    }
+                    echo "Backend health check passed!"
+                    break
+                fi
 
-    post {
-        success {
-            echo 'Deployment successful!'
-        }
+                if [ "$i" -eq 12 ]; then
+                    echo "Backend failed health check!"
+                    docker compose logs --tail=100 backend
+                    exit 1
+                fi
 
-        failure {
-            echo 'Deployment failed!'
-        }
+                echo "Backend not ready - attempt $i/12"
+                sleep 5
+            done
+
+            echo "Checking frontend..."
+            curl -fsS http://localhost:80 > /dev/null
+
+            echo "Frontend health check passed!"
+
+            echo "Final container status:"
+            docker compose ps
+
+            echo "Deployment verification successful!"
+        '''
     }
 }
+       }
