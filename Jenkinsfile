@@ -9,22 +9,54 @@ pipeline {
             }
         }
 
+        stage('Sync Deployment Files') {
+            steps {
+                sh '''
+                    cd /opt/air-quality/Air-Quality-Trends-Analysis-Project
+
+                    git fetch origin main
+                    git reset --hard origin/main
+
+                    echo "Deployment directory updated"
+                    git log -1 --oneline
+                '''
+            }
+        }
+
         stage('Build Docker Images') {
             steps {
-                sh 'docker compose build'
+                sh '''
+                    cd /opt/air-quality/Air-Quality-Trends-Analysis-Project
+
+                    docker compose build
+                '''
             }
         }
 
         stage('Deploy') {
             steps {
-                sh 'docker compose up -d'
+                sh '''
+                    cd /opt/air-quality/Air-Quality-Trends-Analysis-Project
+
+                    docker compose up -d
+                '''
             }
         }
 
         stage('Verify Deployment') {
             steps {
-                sh 'docker compose ps'
-                sh 'curl -f http://localhost:8000/healthz'
+                sh '''
+                    cd /opt/air-quality/Air-Quality-Trends-Analysis-Project
+
+                    docker compose ps
+
+                    echo "Checking backend..."
+                    curl -f http://localhost:8000/healthz
+
+                    echo ""
+                    echo "Checking frontend..."
+                    curl -f http://localhost
+                '''
             }
         }
     }
